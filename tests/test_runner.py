@@ -12,6 +12,7 @@ from evalbudget.runner import (
     exact_match,
     load_cases,
     load_scored_cases,
+    parse_command_output,
     run_command,
 )
 
@@ -84,6 +85,15 @@ class RunnerTests(unittest.TestCase):
     def test_run_command_passes_prompt_on_stdin(self):
         output = run_command("python3 -c 'import sys; print(sys.stdin.read().upper())'", "hello", 2)
         self.assertEqual(output, "HELLO")
+
+    def test_parses_json_command_output_and_cost(self):
+        output, cost = parse_command_output('{"output":"Paris","cost_usd":0.012}', "json")
+        self.assertEqual(output, "Paris")
+        self.assertEqual(cost, 0.012)
+
+    def test_rejects_json_command_output_without_cost(self):
+        with self.assertRaisesRegex(RuntimeError, "cost_usd"):
+            parse_command_output('{"output":"Paris"}', "json")
 
     @patch("evalbudget.runner.subprocess.run")
     def test_run_command_retries_then_returns_output(self, run):

@@ -92,6 +92,8 @@ Useful options:
   disabled by default.
 - `--cache .context/eval-cache.jsonl` checkpoints completed model outputs and
   resumes them when the case, grader, and both command strings are unchanged.
+- `--command-output json` accepts `{"output":"answer","cost_usd":0.001}` from
+  each command and totals provider-reported cost in the final report.
 - `--seed 0` reproducibly shuffles cases to avoid ordering effects.
 - `--json` prints a machine-readable summary; `--output` saves the full report,
   including per-case outputs and scores.

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict
 import hashlib
+import math
 from pathlib import Path
 import shlex
 import subprocess
@@ -131,6 +132,23 @@ def exact_match(output: str, expected: str) -> float:
     return grade_output({"expected": expected, "grader": "exact"}, output)
 
 
+def parse_command_output(raw_output: str, output_format: str) -> tuple[str, float | None]:
+    if output_format == "text":
+        return raw_output, None
+    if output_format != "json":
+        raise ValueError("command output format must be text or json")
+    try:
+        envelope = json.loads(raw_output)
+    except json.JSONDecodeError as error:
+        raise RuntimeError(f"command returned invalid JSON: {error.msg}") from error
+    if not isinstance(envelope, dict) or not isinstance(envelope.get("output"), str):
+        raise RuntimeError("command JSON must contain a string output field")
+    cost = envelope.get("cost_usd")
+    if isinstance(cost, bool) or not isinstance(cost, (int, float)) or cost < 0 or not math.isfinite(cost):
+        raise RuntimeError("command JSON must contain a finite non-negative cost_usd")
+    return envelope["output"], float(cost)
+
+
 def collect_observations(
     cases: Iterable[dict[str, Any]],
     baseline_command: str,
@@ -140,19 +158,24 @@ def collect_observations(
     retries: int = 0,
     retry_delay: float = 0.0,
     cache_path: Path | None = None,
+    command_output: str = "text",
 ) -> Iterable[Observation]:
     cache = _load_observation_cache(cache_path) if cache_path else {}
     for case in cases:
-        cache_key = _observation_cache_key(case, baseline_command, candidate_command)
+        cache_key = _observation_cache_key(
+            case, baseline_command, candidate_command, command_output
+        )
         if cache_key in cache:
             yield cache[cache_key]
             continue
-        baseline_output = run_command(
+        baseline_raw = run_command(
             baseline_command, case["prompt"], timeout, retries=retries, retry_delay=retry_delay
         )
-        candidate_output = run_command(
+        candidate_raw = run_command(
             candidate_command, case["prompt"], timeout, retries=retries, retry_delay=retry_delay
         )
+        baseline_output, baseline_cost = parse_command_output(baseline_raw, command_output)
+        candidate_output, candidate_cost = parse_command_output(candidate_raw, command_output)
         observation = Observation(
             case_id=case["id"],
             baseline_score=grade_output(case, baseline_output),
@@ -163,6 +186,8 @@ def collect_observations(
             grader_type=case["grader"]["type"],
             grader=case["grader"],
             category=case.get("category"),
+            baseline_cost_usd=baseline_cost,
+            candidate_cost_usd=candidate_cost,
         )
         if cache_path:
             cache_path.parent.mkdir(parents=True, exist_ok=True)
@@ -172,10 +197,18 @@ def collect_observations(
 
 
 def _observation_cache_key(
-    case: dict[str, Any], baseline_command: str, candidate_command: str
+    case: dict[str, Any],
+    baseline_command: str,
+    candidate_command: str,
+    command_output: str,
 ) -> str:
     payload = json.dumps(
-        {"case": case, "baseline": baseline_command, "candidate": candidate_command},
+        {
+            "case": case,
+            "baseline": baseline_command,
+            "candidate": candidate_command,
+            "command_output": command_output,
+        },
         sort_keys=True,
         separators=(",", ":"),
     ).encode()

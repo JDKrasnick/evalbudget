@@ -16,6 +16,8 @@ class Observation:
     grader_type: str | None = None
     grader: object | None = None
     category: str | None = None
+    baseline_cost_usd: float | None = None
+    candidate_cost_usd: float | None = None
 
     @property
     def difference(self) -> float:
@@ -37,6 +39,7 @@ class EvaluationResult:
     practical_effect: float
     observations: tuple[Observation, ...]
     category_summaries: dict[str, dict[str, int | float]]
+    total_cost_usd: float | None
 
     def to_dict(self) -> dict[str, object]:
         data = asdict(self)
@@ -87,6 +90,9 @@ def evaluate_observations(
     for item in observations:
         if not 0 <= item.baseline_score <= 1 or not 0 <= item.candidate_score <= 1:
             raise ValueError(f"scores for case {item.case_id!r} must be in [0, 1]")
+        for cost in (item.baseline_cost_usd, item.candidate_cost_usd):
+            if cost is not None and (cost < 0 or not math.isfinite(cost)):
+                raise ValueError(f"costs for case {item.case_id!r} must be finite and non-negative")
         used.append(item)
         total += item.difference
         sample_count = len(used)
@@ -126,6 +132,12 @@ def evaluate_observations(
         }
         for name, items in sorted(categories.items())
     }
+    costs = [
+        cost
+        for item in used
+        for cost in (item.baseline_cost_usd, item.candidate_cost_usd)
+        if cost is not None
+    ]
     return EvaluationResult(
         decision=decision,
         stop_reason=stop_reason,
@@ -140,4 +152,5 @@ def evaluate_observations(
         practical_effect=practical_effect,
         observations=tuple(used),
         category_summaries=category_summaries,
+        total_cost_usd=sum(costs) if costs else None,
     )
