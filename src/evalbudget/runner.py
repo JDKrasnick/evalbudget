@@ -86,4 +86,5 @@ def collect_observations(
             expected=case["expected"],
             grader_type=case["grader"]["type"],
             grader=case["grader"],
+            category=case.get("category"),
         )

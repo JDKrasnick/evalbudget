@@ -4,6 +4,17 @@ from evalbudget.engine import Observation, confidence_sequence, evaluate_observa
 
 
 class EngineTests(unittest.TestCase):
+    def test_reports_category_breakdown(self):
+        observations = [
+            Observation("1", 0, 1, category="math"),
+            Observation("2", 1, 1, category="math"),
+            Observation("3", 1, 0, category="writing"),
+        ]
+        result = evaluate_observations(observations, min_samples=3, max_samples=3)
+        self.assertEqual(result.category_summaries["math"]["samples"], 2)
+        self.assertEqual(result.category_summaries["math"]["mean_difference"], 0.5)
+        self.assertEqual(result.category_summaries["writing"]["baseline_wins"], 1)
+
     def test_strong_candidate_stops_early(self):
         observations = [Observation(str(index), 0, 1) for index in range(100)]
         result = evaluate_observations(observations, min_samples=10, max_samples=100)
@@ -30,4 +41,3 @@ class EngineTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
