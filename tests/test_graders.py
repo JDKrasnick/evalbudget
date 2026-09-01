@@ -45,7 +45,12 @@ class GraderTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "invalid expected regex"):
             validate_case({"id": "1", "prompt": "p", "expected": "[", "grader": "regex"})
 
+    def test_judge_case_accepts_structured_expected_value(self):
+        case = validate_case(
+            {"id": "1", "prompt": "Summarize", "expected": {"facts": ["a", "b"]}, "grader": "judge"}
+        )
+        self.assertEqual(case["grader"]["type"], "judge")
+
 
 if __name__ == "__main__":
     unittest.main()
-

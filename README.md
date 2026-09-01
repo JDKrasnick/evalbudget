@@ -60,6 +60,7 @@ Every case may select a grader appropriate to its answer contract:
 {"id":"boolean","prompt":"Is 2 prime?","expected":["yes","true"],"grader":"accepted"}
 {"id":"distance","prompt":"How many km?","expected":3.5,"category":"math","grader":{"type":"numeric","abs_tol":0.01}}
 {"id":"ticket","prompt":"Return a ticket ID","expected":"TKT-[0-9]{4}","grader":{"type":"regex","flags":"i"}}
+{"id":"summary","prompt":"Summarize the note","expected":{"facts":["launch date"]},"grader":"judge"}
 ```
 
 - `exact` ignores case and whitespace differences, Unicode compatibility
@@ -74,6 +75,9 @@ Every case may select a grader appropriate to its answer contract:
 - `regex` treats `expected` as a Python regular expression. Matching covers the
   full output by default; set `fullmatch` to `false` to search. Supported flags
   are `i`, `m`, and `s`.
+- `judge` sends `id`, `prompt`, `expected`, and the raw `output` as JSON to
+  `--judge-command`. The judge must return `{"score":0.0}` with a finite score
+  in `[0, 1]`; fractional rubric scores are supported.
 
 Grader configuration is validated before any model command runs. The full
 report records the expected value, grader type, grader configuration, raw
