@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import shlex
 import subprocess
+import time
 from typing import Any, Iterable
 
 from .engine import Observation
@@ -85,27 +86,42 @@ def collect_scored_observations(cases: Iterable[dict[str, Any]]) -> Iterable[Obs
         )
 
 
-def run_command(command: str, prompt: str, timeout: float) -> str:
+def run_command(
+    command: str,
+    prompt: str,
+    timeout: float,
+    *,
+    retries: int = 0,
+    retry_delay: float = 0.0,
+) -> str:
     arguments = shlex.split(command)
     if not arguments:
         raise ValueError("model command cannot be empty")
-    try:
-        completed = subprocess.run(
-            arguments,
-            input=prompt,
-            text=True,
-            capture_output=True,
-            timeout=timeout,
-            check=False,
-        )
-    except subprocess.TimeoutExpired as error:
-        raise RuntimeError(f"command timed out after {timeout:g}s: {command}") from error
-    except OSError as error:
-        raise RuntimeError(f"could not run {arguments[0]!r}: {error}") from error
-    if completed.returncode != 0:
-        detail = completed.stderr.strip() or f"exit status {completed.returncode}"
-        raise RuntimeError(f"command failed ({command}): {detail}")
-    return completed.stdout.strip()
+    if retries < 0 or retry_delay < 0:
+        raise ValueError("retries and retry_delay must be non-negative")
+    last_error: RuntimeError | None = None
+    for attempt in range(retries + 1):
+        try:
+            completed = subprocess.run(
+                arguments,
+                input=prompt,
+                text=True,
+                capture_output=True,
+                timeout=timeout,
+                check=False,
+            )
+            if completed.returncode == 0:
+                return completed.stdout.strip()
+            detail = completed.stderr.strip() or f"exit status {completed.returncode}"
+            last_error = RuntimeError(f"command failed ({command}): {detail}")
+        except subprocess.TimeoutExpired:
+            last_error = RuntimeError(f"command timed out after {timeout:g}s: {command}")
+        except OSError as error:
+            last_error = RuntimeError(f"could not run {arguments[0]!r}: {error}")
+        if attempt < retries and retry_delay:
+            time.sleep(retry_delay)
+    assert last_error is not None
+    raise last_error
 
 
 def exact_match(output: str, expected: str) -> float:
@@ -119,10 +135,16 @@ def collect_observations(
     candidate_command: str,
     *,
     timeout: float,
+    retries: int = 0,
+    retry_delay: float = 0.0,
 ) -> Iterable[Observation]:
     for case in cases:
-        baseline_output = run_command(baseline_command, case["prompt"], timeout)
-        candidate_output = run_command(candidate_command, case["prompt"], timeout)
+        baseline_output = run_command(
+            baseline_command, case["prompt"], timeout, retries=retries, retry_delay=retry_delay
+        )
+        candidate_output = run_command(
+            candidate_command, case["prompt"], timeout, retries=retries, retry_delay=retry_delay
+        )
         yield Observation(
             case_id=case["id"],
             baseline_score=grade_output(case, baseline_output),
