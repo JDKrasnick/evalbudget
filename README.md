@@ -68,6 +68,15 @@ Each command receives one prompt on standard input and must print its answer on
 standard output. Commands are parsed as argument lists and are **not** run
 through a shell.
 
+Already-scored results can be analyzed without rerunning either system:
+
+```bash
+evalbudget scores.jsonl --pre-scored
+```
+
+Each line then needs `id`, `baseline_score`, and `candidate_score` values; scores
+may be any number in `[0, 1]`, with an optional `category`.
+
 ### Try the included example
 
 From the repository root:

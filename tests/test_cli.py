@@ -11,6 +11,20 @@ from evalbudget.cli import main
 
 
 class CliTests(unittest.TestCase):
+    def test_analyzes_pre_scored_dataset_without_commands(self):
+        with tempfile.TemporaryDirectory() as directory:
+            dataset = Path(directory) / "scores.jsonl"
+            dataset.write_text(
+                "".join(
+                    json.dumps({"id": str(index), "baseline_score": 0, "candidate_score": 1}) + "\n"
+                    for index in range(25)
+                ),
+                encoding="utf-8",
+            )
+            with redirect_stdout(StringIO()):
+                exit_code = main([str(dataset), "--pre-scored", "--min-samples", "5", "--max-samples", "25"])
+            self.assertEqual(exit_code, 0)
+
     def test_end_to_end_with_every_grader_type(self):
         cases = [
             {"id": "exact", "prompt": '"object"', "expected": "object"},

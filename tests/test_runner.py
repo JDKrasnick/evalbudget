@@ -5,7 +5,14 @@ import unittest
 
 from unittest.mock import patch
 
-from evalbudget.runner import collect_observations, exact_match, load_cases, run_command
+from evalbudget.runner import (
+    collect_observations,
+    collect_scored_observations,
+    exact_match,
+    load_cases,
+    load_scored_cases,
+    run_command,
+)
 
 
 class RunnerTests(unittest.TestCase):
@@ -54,6 +61,24 @@ class RunnerTests(unittest.TestCase):
     def test_run_command_passes_prompt_on_stdin(self):
         output = run_command("python3 -c 'import sys; print(sys.stdin.read().upper())'", "hello", 2)
         self.assertEqual(output, "HELLO")
+
+    def test_loads_pre_scored_cases_without_prompts(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "scores.jsonl"
+            path.write_text(
+                json.dumps({"id": "1", "baseline_score": 0.25, "candidate_score": 1, "category": "math"}) + "\n"
+            )
+            cases = load_scored_cases(path)
+            observation = next(iter(collect_scored_observations(cases)))
+            self.assertEqual(observation.difference, 0.75)
+            self.assertEqual(observation.category, "math")
+
+    def test_rejects_invalid_pre_scored_value(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "scores.jsonl"
+            path.write_text(json.dumps({"id": "1", "baseline_score": -1, "candidate_score": 1}) + "\n")
+            with self.assertRaisesRegex(ValueError, "baseline_score"):
+                load_scored_cases(path)
 
 
 if __name__ == "__main__":
