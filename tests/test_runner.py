@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+import subprocess
 
 from unittest.mock import patch
 
@@ -61,6 +62,23 @@ class RunnerTests(unittest.TestCase):
     def test_run_command_passes_prompt_on_stdin(self):
         output = run_command("python3 -c 'import sys; print(sys.stdin.read().upper())'", "hello", 2)
         self.assertEqual(output, "HELLO")
+
+    @patch("evalbudget.runner.subprocess.run")
+    def test_run_command_retries_then_returns_output(self, run):
+        run.side_effect = [
+            subprocess.TimeoutExpired("model", 1),
+            subprocess.CompletedProcess(["model"], 0, stdout="recovered\n", stderr=""),
+        ]
+        output = run_command("model", "prompt", 1, retries=1)
+        self.assertEqual(output, "recovered")
+        self.assertEqual(run.call_count, 2)
+
+    @patch("evalbudget.runner.subprocess.run")
+    def test_run_command_stops_after_retry_limit(self, run):
+        run.return_value = subprocess.CompletedProcess(["model"], 2, stdout="", stderr="bad")
+        with self.assertRaisesRegex(RuntimeError, "bad"):
+            run_command("model", "prompt", 1, retries=2)
+        self.assertEqual(run.call_count, 3)
 
     def test_loads_pre_scored_cases_without_prompts(self):
         with tempfile.TemporaryDirectory() as directory:
