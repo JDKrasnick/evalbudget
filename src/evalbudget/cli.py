@@ -7,7 +7,7 @@ import random
 import sys
 
 from .engine import evaluate_observations
-from .runner import collect_observations, load_cases
+from .runner import collect_observations, collect_scored_observations, load_cases, load_scored_cases
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -20,8 +20,13 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         help="JSONL with id, prompt, expected, and an optional grader",
     )
-    parser.add_argument("--baseline", required=True, help="baseline command; receives the prompt on stdin")
-    parser.add_argument("--candidate", required=True, help="candidate command; receives the prompt on stdin")
+    parser.add_argument("--baseline", help="baseline command; receives the prompt on stdin")
+    parser.add_argument("--candidate", help="candidate command; receives the prompt on stdin")
+    parser.add_argument(
+        "--pre-scored",
+        action="store_true",
+        help="analyze existing baseline_score and candidate_score fields without running commands",
+    )
     parser.add_argument("--confidence", type=float, default=0.95)
     parser.add_argument("--practical-effect", type=float, default=0.0)
     parser.add_argument("--min-samples", type=int, default=20)
@@ -36,14 +41,20 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
-        cases = load_cases(args.dataset)
+        if args.pre_scored:
+            cases = load_scored_cases(args.dataset)
+            observations = collect_scored_observations(cases)
+        else:
+            if not args.baseline or not args.candidate:
+                raise ValueError("--baseline and --candidate are required unless --pre-scored is used")
+            cases = load_cases(args.dataset)
+            observations = collect_observations(
+                cases,
+                args.baseline,
+                args.candidate,
+                timeout=args.timeout,
+            )
         random.Random(args.seed).shuffle(cases)
-        observations = collect_observations(
-            cases,
-            args.baseline,
-            args.candidate,
-            timeout=args.timeout,
-        )
         result = evaluate_observations(
             observations,
             confidence=args.confidence,
