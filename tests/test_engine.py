@@ -15,6 +15,14 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(result.category_summaries["math"]["mean_difference"], 0.5)
         self.assertEqual(result.category_summaries["writing"]["baseline_wins"], 1)
 
+    def test_aggregates_reported_model_costs(self):
+        observations = [
+            Observation("1", 0, 1, baseline_cost_usd=0.01, candidate_cost_usd=0.02),
+            Observation("2", 1, 1, baseline_cost_usd=0.03, candidate_cost_usd=0.04),
+        ]
+        result = evaluate_observations(observations, min_samples=2, max_samples=2)
+        self.assertAlmostEqual(result.total_cost_usd, 0.10)
+
     def test_strong_candidate_stops_early(self):
         observations = [Observation(str(index), 0, 1) for index in range(100)]
         result = evaluate_observations(observations, min_samples=10, max_samples=100)
@@ -32,6 +40,12 @@ class EngineTests(unittest.TestCase):
     def test_rejects_out_of_range_scores(self):
         with self.assertRaisesRegex(ValueError, "must be in"):
             evaluate_observations([Observation("bad", 0, 2)], min_samples=1)
+
+    def test_rejects_invalid_cost(self):
+        with self.assertRaisesRegex(ValueError, "costs"):
+            evaluate_observations(
+                [Observation("bad", 0, 1, baseline_cost_usd=-0.01)], min_samples=1
+            )
 
     def test_confidence_sequence_is_bounded(self):
         lower, upper = confidence_sequence(1.0, 1, 0.05)
