@@ -41,6 +41,10 @@ def build_parser() -> argparse.ArgumentParser:
         default="text",
         help="model output format; JSON requires output and cost_usd fields",
     )
+    parser.add_argument(
+        "--judge-command",
+        help="command for judge-graded cases; receives case and output JSON on stdin",
+    )
     parser.add_argument("--seed", type=int, default=0, help="dataset shuffle seed")
     parser.add_argument("--output", type=Path, help="write the full JSON report here")
     parser.add_argument("--json", action="store_true", help="print the summary as JSON")
@@ -57,6 +61,8 @@ def main(argv: list[str] | None = None) -> int:
             if not args.baseline or not args.candidate:
                 raise ValueError("--baseline and --candidate are required unless --pre-scored is used")
             cases = load_cases(args.dataset)
+            if any(case["grader"]["type"] == "judge" for case in cases) and not args.judge_command:
+                raise ValueError("dataset contains judge graders but --judge-command is missing")
             observations = collect_observations(
                 cases,
                 args.baseline,
@@ -66,6 +72,7 @@ def main(argv: list[str] | None = None) -> int:
                 retry_delay=args.retry_delay,
                 cache_path=args.cache,
                 command_output=args.command_output,
+                judge_command=args.judge_command,
             )
         random.Random(args.seed).shuffle(cases)
         result = evaluate_observations(
