@@ -32,6 +32,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--min-samples", type=int, default=20)
     parser.add_argument("--max-samples", type=int, default=500)
     parser.add_argument("--timeout", type=float, default=30.0, help="seconds per model invocation")
+    parser.add_argument("--retries", type=int, default=0, help="retries after a failed model invocation")
+    parser.add_argument("--retry-delay", type=float, default=0.0, help="seconds between retries")
     parser.add_argument("--seed", type=int, default=0, help="dataset shuffle seed")
     parser.add_argument("--output", type=Path, help="write the full JSON report here")
     parser.add_argument("--json", action="store_true", help="print the summary as JSON")
@@ -53,6 +55,8 @@ def main(argv: list[str] | None = None) -> int:
                 args.baseline,
                 args.candidate,
                 timeout=args.timeout,
+                retries=args.retries,
+                retry_delay=args.retry_delay,
             )
         random.Random(args.seed).shuffle(cases)
         result = evaluate_observations(

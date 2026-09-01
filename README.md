@@ -148,6 +148,7 @@ summaries in the report.
 | `--min-samples` | `20` | Prevents decisions from very small samples. |
 | `--max-samples` | `500` | Caps evaluation cost when evidence stays inconclusive. |
 | `--timeout` | `30` | Seconds allowed for each model invocation. |
+| `--retries`, `--retry-delay` | `0`, `0` | Retries transient command failures with an optional delay. |
 | `--seed` | `0` | Reproducible dataset shuffle seed. |
 | `--output` | — | Writes the full JSON report, including every observation. |
 | `--json` | off | Prints the summary as machine-readable JSON. |
