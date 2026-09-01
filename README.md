@@ -149,6 +149,7 @@ summaries in the report.
 | `--max-samples` | `500` | Caps evaluation cost when evidence stays inconclusive. |
 | `--timeout` | `30` | Seconds allowed for each model invocation. |
 | `--retries`, `--retry-delay` | `0`, `0` | Retries transient command failures with an optional delay. |
+| `--cache` | — | Checkpoints model outputs and resumes matching cases without rerunning them. |
 | `--seed` | `0` | Reproducible dataset shuffle seed. |
 | `--output` | — | Writes the full JSON report, including every observation. |
 | `--json` | off | Prints the summary as machine-readable JSON. |
