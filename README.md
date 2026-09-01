@@ -49,7 +49,7 @@ Every case may select a grader appropriate to its answer contract:
 ```jsonl
 {"id":"quoted","prompt":"JavaScript typeof null?","expected":"object"}
 {"id":"boolean","prompt":"Is 2 prime?","expected":["yes","true"],"grader":"accepted"}
-{"id":"distance","prompt":"How many km?","expected":3.5,"grader":{"type":"numeric","abs_tol":0.01}}
+{"id":"distance","prompt":"How many km?","expected":3.5,"category":"math","grader":{"type":"numeric","abs_tol":0.01}}
 {"id":"ticket","prompt":"Return a ticket ID","expected":"TKT-[0-9]{4}","grader":{"type":"regex","flags":"i"}}
 ```
 
@@ -69,7 +69,8 @@ Every case may select a grader appropriate to its answer contract:
 Grader configuration is validated before any model command runs. The full
 report records the expected value, grader type, grader configuration, raw
 outputs, and scores for each case. Every case produces a paired score difference
-in `[-1, 1]`.
+in `[-1, 1]`. An optional non-empty `category` adds per-category sample, effect,
+win, loss, and tie summaries to the report.
 
 Useful options:
 

@@ -36,6 +36,12 @@ class RunnerTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "duplicate id"):
                 load_cases(path)
 
+    def test_load_cases_validates_category(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "cases.jsonl"
+            path.write_text(json.dumps({"id": "1", "prompt": "p", "expected": "e", "category": "  math "}) + "\n")
+            self.assertEqual(load_cases(path)[0]["category"], "math")
+
     def test_collect_observations_uses_case_grader(self):
         cases = [{"id": "1", "prompt": "p", "expected": 3, "grader": {"type": "numeric"}}]
         with patch("evalbudget.runner.run_command", side_effect=["3 minutes", "The answer is 3."]):

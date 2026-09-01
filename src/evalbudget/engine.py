@@ -15,6 +15,7 @@ class Observation:
     expected: object | None = None
     grader_type: str | None = None
     grader: object | None = None
+    category: str | None = None
 
     @property
     def difference(self) -> float:
@@ -35,6 +36,7 @@ class EvaluationResult:
     confidence: float
     practical_effect: float
     observations: tuple[Observation, ...]
+    category_summaries: dict[str, dict[str, int | float]]
 
     def to_dict(self) -> dict[str, object]:
         data = asdict(self)
@@ -110,6 +112,20 @@ def evaluate_observations(
 
     wins = sum(item.difference > 0 for item in used)
     losses = sum(item.difference < 0 for item in used)
+    categories: dict[str, list[Observation]] = {}
+    for item in used:
+        if item.category is not None:
+            categories.setdefault(item.category, []).append(item)
+    category_summaries = {
+        name: {
+            "samples": len(items),
+            "mean_difference": sum(item.difference for item in items) / len(items),
+            "candidate_wins": sum(item.difference > 0 for item in items),
+            "baseline_wins": sum(item.difference < 0 for item in items),
+            "ties": sum(item.difference == 0 for item in items),
+        }
+        for name, items in sorted(categories.items())
+    }
     return EvaluationResult(
         decision=decision,
         stop_reason=stop_reason,
@@ -123,4 +139,5 @@ def evaluate_observations(
         confidence=confidence,
         practical_effect=practical_effect,
         observations=tuple(used),
+        category_summaries=category_summaries,
     )
