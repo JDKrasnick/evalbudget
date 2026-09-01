@@ -64,6 +64,10 @@ def validate_case(case: Mapping[str, Any]) -> dict[str, Any]:
         raise ValueError(f"missing {', '.join(sorted(missing))}")
     if not isinstance(case["id"], str) or not isinstance(case["prompt"], str):
         raise ValueError("id and prompt must be strings")
+    if "category" in case and (
+        not isinstance(case["category"], str) or not case["category"].strip()
+    ):
+        raise ValueError("category must be a non-empty string")
 
     config = grader_config(case)
     expected = case["expected"]
@@ -84,6 +88,8 @@ def validate_case(case: Mapping[str, Any]) -> dict[str, Any]:
             raise ValueError(f"invalid expected regex: {error}") from error
 
     validated = dict(case)
+    if "category" in validated:
+        validated["category"] = validated["category"].strip()
     validated["grader"] = config
     return validated
 
