@@ -88,6 +88,8 @@ Useful options:
   points, and permits a practical-equivalence decision inside that margin.
 - `--min-samples 20` prevents decisions on tiny samples.
 - `--max-samples 500` caps cost even when evidence remains inconclusive.
+- `--retries 2 --retry-delay 1` retries transient command failures; retries are
+  disabled by default.
 - `--seed 0` reproducibly shuffles cases to avoid ordering effects.
 - `--json` prints a machine-readable summary; `--output` saves the full report,
   including per-case outputs and scores.
