@@ -59,6 +59,28 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(observation.grader_type, "numeric")
         self.assertEqual(observation.grader, {"type": "numeric"})
 
+    def test_collect_observations_resumes_from_cache(self):
+        cases = [{"id": "1", "prompt": "p", "expected": "yes", "grader": {"type": "exact"}}]
+        with tempfile.TemporaryDirectory() as directory:
+            cache = Path(directory) / "cache.jsonl"
+            with patch("evalbudget.runner.run_command", side_effect=["no", "yes"]) as run:
+                first = list(collect_observations(cases, "base", "candidate", timeout=1, cache_path=cache))
+            with patch("evalbudget.runner.run_command") as run_again:
+                second = list(collect_observations(cases, "base", "candidate", timeout=1, cache_path=cache))
+            self.assertEqual(run.call_count, 2)
+            run_again.assert_not_called()
+            self.assertEqual(first, second)
+
+    def test_cache_key_changes_with_command(self):
+        cases = [{"id": "1", "prompt": "p", "expected": "yes", "grader": {"type": "exact"}}]
+        with tempfile.TemporaryDirectory() as directory:
+            cache = Path(directory) / "cache.jsonl"
+            with patch("evalbudget.runner.run_command", side_effect=["no", "yes"]):
+                list(collect_observations(cases, "base-v1", "candidate", timeout=1, cache_path=cache))
+            with patch("evalbudget.runner.run_command", side_effect=["yes", "yes"]) as changed:
+                list(collect_observations(cases, "base-v2", "candidate", timeout=1, cache_path=cache))
+            self.assertEqual(changed.call_count, 2)
+
     def test_run_command_passes_prompt_on_stdin(self):
         output = run_command("python3 -c 'import sys; print(sys.stdin.read().upper())'", "hello", 2)
         self.assertEqual(output, "HELLO")

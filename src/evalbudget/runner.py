@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+from dataclasses import asdict
+import hashlib
 from pathlib import Path
 import shlex
 import subprocess
@@ -137,15 +139,21 @@ def collect_observations(
     timeout: float,
     retries: int = 0,
     retry_delay: float = 0.0,
+    cache_path: Path | None = None,
 ) -> Iterable[Observation]:
+    cache = _load_observation_cache(cache_path) if cache_path else {}
     for case in cases:
+        cache_key = _observation_cache_key(case, baseline_command, candidate_command)
+        if cache_key in cache:
+            yield cache[cache_key]
+            continue
         baseline_output = run_command(
             baseline_command, case["prompt"], timeout, retries=retries, retry_delay=retry_delay
         )
         candidate_output = run_command(
             candidate_command, case["prompt"], timeout, retries=retries, retry_delay=retry_delay
         )
-        yield Observation(
+        observation = Observation(
             case_id=case["id"],
             baseline_score=grade_output(case, baseline_output),
             candidate_score=grade_output(case, candidate_output),
@@ -156,3 +164,35 @@ def collect_observations(
             grader=case["grader"],
             category=case.get("category"),
         )
+        if cache_path:
+            cache_path.parent.mkdir(parents=True, exist_ok=True)
+            with cache_path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps({"key": cache_key, "observation": asdict(observation)}) + "\n")
+        yield observation
+
+
+def _observation_cache_key(
+    case: dict[str, Any], baseline_command: str, candidate_command: str
+) -> str:
+    payload = json.dumps(
+        {"case": case, "baseline": baseline_command, "candidate": candidate_command},
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode()
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _load_observation_cache(path: Path) -> dict[str, Observation]:
+    if not path.exists():
+        return {}
+    cache: dict[str, Observation] = {}
+    with path.open(encoding="utf-8") as handle:
+        for line_number, line in enumerate(handle, 1):
+            if not line.strip():
+                continue
+            try:
+                item = json.loads(line)
+                cache[item["key"]] = Observation(**item["observation"])
+            except (json.JSONDecodeError, KeyError, TypeError) as error:
+                raise ValueError(f"{path}:{line_number}: invalid observation cache entry") from error
+    return cache
