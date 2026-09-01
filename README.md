@@ -90,6 +90,8 @@ Useful options:
 - `--max-samples 500` caps cost even when evidence remains inconclusive.
 - `--retries 2 --retry-delay 1` retries transient command failures; retries are
   disabled by default.
+- `--cache .context/eval-cache.jsonl` checkpoints completed model outputs and
+  resumes them when the case, grader, and both command strings are unchanged.
 - `--seed 0` reproducibly shuffles cases to avoid ordering effects.
 - `--json` prints a machine-readable summary; `--output` saves the full report,
   including per-case outputs and scores.
