@@ -39,6 +39,52 @@ def load_cases(path: Path) -> list[dict[str, Any]]:
     return cases
 
 
+def load_scored_cases(path: Path) -> list[dict[str, Any]]:
+    cases: list[dict[str, Any]] = []
+    ids: set[str] = set()
+    with path.open(encoding="utf-8") as handle:
+        for line_number, line in enumerate(handle, 1):
+            if not line.strip():
+                continue
+            try:
+                item = json.loads(line)
+            except json.JSONDecodeError as error:
+                raise ValueError(f"{path}:{line_number}: invalid JSON: {error.msg}") from error
+            if not isinstance(item, dict):
+                raise ValueError(f"{path}:{line_number}: each case must be a JSON object")
+            missing = {"id", "baseline_score", "candidate_score"} - item.keys()
+            if missing:
+                raise ValueError(f"{path}:{line_number}: missing {', '.join(sorted(missing))}")
+            if not isinstance(item["id"], str):
+                raise ValueError(f"{path}:{line_number}: id must be a string")
+            if item["id"] in ids:
+                raise ValueError(f"{path}:{line_number}: duplicate id {item['id']!r}")
+            for name in ("baseline_score", "candidate_score"):
+                value = item[name]
+                if isinstance(value, bool) or not isinstance(value, (int, float)) or not 0 <= value <= 1:
+                    raise ValueError(f"{path}:{line_number}: {name} must be a number in [0, 1]")
+            if "category" in item and (
+                not isinstance(item["category"], str) or not item["category"].strip()
+            ):
+                raise ValueError(f"{path}:{line_number}: category must be a non-empty string")
+            ids.add(item["id"])
+            cases.append(item)
+    if not cases:
+        raise ValueError(f"{path}: no cases found")
+    return cases
+
+
+def collect_scored_observations(cases: Iterable[dict[str, Any]]) -> Iterable[Observation]:
+    for case in cases:
+        yield Observation(
+            case_id=case["id"],
+            baseline_score=float(case["baseline_score"]),
+            candidate_score=float(case["candidate_score"]),
+            grader_type="pre_scored",
+            category=case.get("category", "").strip() or None,
+        )
+
+
 def run_command(command: str, prompt: str, timeout: float) -> str:
     arguments = shlex.split(command)
     if not arguments:
