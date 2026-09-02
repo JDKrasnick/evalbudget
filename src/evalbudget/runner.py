@@ -149,6 +149,51 @@ def parse_command_output(raw_output: str, output_format: str) -> tuple[str, floa
     return envelope["output"], float(cost)
 
 
+def parse_judge_output(raw_output: str) -> float:
+    try:
+        envelope = json.loads(raw_output)
+    except json.JSONDecodeError as error:
+        raise RuntimeError(f"judge returned invalid JSON: {error.msg}") from error
+    score = envelope.get("score") if isinstance(envelope, dict) else None
+    if isinstance(score, bool) or not isinstance(score, (int, float)):
+        raise RuntimeError("judge JSON must contain a numeric score")
+    if not math.isfinite(score) or not 0 <= score <= 1:
+        raise RuntimeError("judge score must be finite and in [0, 1]")
+    return float(score)
+
+
+def grade_case_output(
+    case: dict[str, Any],
+    output: str,
+    *,
+    judge_command: str | None,
+    timeout: float,
+    retries: int,
+    retry_delay: float,
+) -> float:
+    if case["grader"]["type"] != "judge":
+        return grade_output(case, output)
+    if not judge_command:
+        raise ValueError("judge grader requires --judge-command")
+    request = json.dumps(
+        {
+            "id": case["id"],
+            "prompt": case["prompt"],
+            "expected": case["expected"],
+            "output": output,
+        },
+        separators=(",", ":"),
+    )
+    raw_score = run_command(
+        judge_command,
+        request,
+        timeout,
+        retries=retries,
+        retry_delay=retry_delay,
+    )
+    return parse_judge_output(raw_score)
+
+
 def collect_observations(
     cases: Iterable[dict[str, Any]],
     baseline_command: str,
@@ -159,11 +204,12 @@ def collect_observations(
     retry_delay: float = 0.0,
     cache_path: Path | None = None,
     command_output: str = "text",
+    judge_command: str | None = None,
 ) -> Iterable[Observation]:
     cache = _load_observation_cache(cache_path) if cache_path else {}
     for case in cases:
         cache_key = _observation_cache_key(
-            case, baseline_command, candidate_command, command_output
+            case, baseline_command, candidate_command, command_output, judge_command
         )
         if cache_key in cache:
             yield cache[cache_key]
@@ -178,8 +224,22 @@ def collect_observations(
         candidate_output, candidate_cost = parse_command_output(candidate_raw, command_output)
         observation = Observation(
             case_id=case["id"],
-            baseline_score=grade_output(case, baseline_output),
-            candidate_score=grade_output(case, candidate_output),
+            baseline_score=grade_case_output(
+                case,
+                baseline_output,
+                judge_command=judge_command,
+                timeout=timeout,
+                retries=retries,
+                retry_delay=retry_delay,
+            ),
+            candidate_score=grade_case_output(
+                case,
+                candidate_output,
+                judge_command=judge_command,
+                timeout=timeout,
+                retries=retries,
+                retry_delay=retry_delay,
+            ),
             baseline_output=baseline_output,
             candidate_output=candidate_output,
             expected=case["expected"],
@@ -201,6 +261,7 @@ def _observation_cache_key(
     baseline_command: str,
     candidate_command: str,
     command_output: str,
+    judge_command: str | None,
 ) -> str:
     payload = json.dumps(
         {
@@ -208,6 +269,7 @@ def _observation_cache_key(
             "baseline": baseline_command,
             "candidate": candidate_command,
             "command_output": command_output,
+            "judge_command": judge_command,
         },
         sort_keys=True,
         separators=(",", ":"),

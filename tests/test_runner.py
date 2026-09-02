@@ -13,6 +13,7 @@ from evalbudget.runner import (
     load_cases,
     load_scored_cases,
     parse_command_output,
+    parse_judge_output,
     run_command,
 )
 
@@ -94,6 +95,30 @@ class RunnerTests(unittest.TestCase):
     def test_rejects_json_command_output_without_cost(self):
         with self.assertRaisesRegex(RuntimeError, "cost_usd"):
             parse_command_output('{"output":"Paris"}', "json")
+
+    def test_parses_fractional_judge_score(self):
+        self.assertEqual(parse_judge_output('{"score":0.75}'), 0.75)
+
+    def test_rejects_out_of_range_judge_score(self):
+        with self.assertRaisesRegex(RuntimeError, r"\[0, 1\]"):
+            parse_judge_output('{"score":1.5}')
+
+    def test_collect_observations_calls_judge_for_each_output(self):
+        cases = [{"id": "1", "prompt": "p", "expected": {"fact": "x"}, "grader": {"type": "judge"}}]
+        with patch(
+            "evalbudget.runner.run_command",
+            side_effect=["weak", "strong", '{"score":0.25}', '{"score":1}'],
+        ) as run:
+            observation = next(
+                iter(
+                    collect_observations(
+                        cases, "base", "candidate", timeout=1, judge_command="judge"
+                    )
+                )
+            )
+        self.assertEqual(observation.baseline_score, 0.25)
+        self.assertEqual(observation.candidate_score, 1.0)
+        self.assertEqual(run.call_count, 4)
 
     @patch("evalbudget.runner.subprocess.run")
     def test_run_command_retries_then_returns_output(self, run):
