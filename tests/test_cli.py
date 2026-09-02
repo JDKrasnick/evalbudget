@@ -11,6 +11,43 @@ from evalbudget.cli import main
 
 
 class CliTests(unittest.TestCase):
+    def test_runs_external_judge_end_to_end(self):
+        echo_command = shlex.join(
+            [sys.executable, "-c", "import sys; print(sys.stdin.read(), end='')"]
+        )
+        judge_command = shlex.join(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "import json,sys; x=json.load(sys.stdin); "
+                    "print(json.dumps({'score': float(x['output'].casefold() == x['expected'].casefold())}))"
+                ),
+            ]
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            dataset = Path(directory) / "judge.jsonl"
+            report_path = Path(directory) / "report.json"
+            dataset.write_text(
+                json.dumps({"id": "1", "prompt": "Paris", "expected": "paris", "grader": "judge"}) + "\n"
+            )
+            with redirect_stdout(StringIO()):
+                exit_code = main(
+                    [
+                        str(dataset),
+                        "--baseline", echo_command,
+                        "--candidate", echo_command,
+                        "--judge-command", judge_command,
+                        "--min-samples", "1",
+                        "--max-samples", "1",
+                        "--output", str(report_path),
+                    ]
+                )
+            report = json.loads(report_path.read_text())
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(report["observations"][0]["baseline_score"], 1.0)
+            self.assertEqual(report["observations"][0]["candidate_score"], 1.0)
+
     def test_analyzes_pre_scored_dataset_without_commands(self):
         with tempfile.TemporaryDirectory() as directory:
             dataset = Path(directory) / "scores.jsonl"

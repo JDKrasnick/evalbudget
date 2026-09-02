@@ -7,7 +7,7 @@ import unicodedata
 from typing import Any, Mapping
 
 
-GRADER_TYPES = {"exact", "accepted", "numeric", "regex"}
+GRADER_TYPES = {"exact", "accepted", "numeric", "regex", "judge"}
 _NUMBER = re.compile(
     r"(?<![\w.])([+-]?(?:\d+(?:,\d{3})*(?:\.\d+)?|\.\d+)(?:[eE][+-]?\d+)?(?:\s*/\s*[+-]?\d+(?:,\d{3})*)?)(?!\w)(?!\.\d)"
 )
@@ -33,6 +33,7 @@ def grader_config(case: Mapping[str, Any]) -> dict[str, Any]:
         "accepted": {"type"},
         "numeric": {"type", "abs_tol", "rel_tol"},
         "regex": {"type", "flags", "fullmatch"},
+        "judge": {"type"},
     }[grader_type]
     unknown = set(config) - allowed
     if unknown:
@@ -128,6 +129,8 @@ def grade_output(case: Mapping[str, Any], output: str) -> float:
         pattern = re.compile(expected, _regex_flags(config["flags"]))
         matcher = pattern.fullmatch if config["fullmatch"] else pattern.search
         return float(matcher(output.strip()) is not None)
+    if grader_type == "judge":
+        raise ValueError("judge grader requires a judge command")
     raise AssertionError(f"unreachable grader type: {grader_type}")
 
 

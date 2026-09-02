@@ -126,6 +126,7 @@ Choose a grader per case when outputs have different contracts:
 {"id":"boolean","prompt":"Is 2 prime?","expected":["yes","true"],"grader":"accepted"}
 {"id":"distance","prompt":"How many km?","expected":3.5,"category":"math","grader":{"type":"numeric","abs_tol":0.01}}
 {"id":"ticket","prompt":"Return a ticket ID","expected":"TKT-[0-9]{4}","grader":{"type":"regex","flags":"i"}}
+{"id":"summary","prompt":"Summarize the note","expected":{"facts":["launch date"]},"grader":"judge"}
 ```
 
 | Grader | Best for | Behavior |
@@ -134,6 +135,7 @@ Choose a grader per case when outputs have different contracts:
 | `accepted` | Equivalent labels | Matches any string in a non-empty accepted-answer list using exact normalization. |
 | `numeric` | Quantities and measurements | Accepts one integer, decimal, scientific-notation value, or fraction; supports absolute and relative tolerance. |
 | `regex` | Structured text | Full-matches by default; supports search mode and the `i`, `m`, and `s` flags. |
+| `judge` | Open-ended responses | Sends the case and output to `--judge-command`, which returns a score in `[0, 1]`. |
 
 Grader configuration is validated before either command runs. Add an optional
 non-empty `category` to get per-category sample, effect, win, loss, and tie
