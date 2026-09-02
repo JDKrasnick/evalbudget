@@ -35,6 +35,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--retries", type=int, default=0, help="retries after a failed model invocation")
     parser.add_argument("--retry-delay", type=float, default=0.0, help="seconds between retries")
     parser.add_argument("--cache", type=Path, help="reuse and append completed model outputs")
+    parser.add_argument(
+        "--command-output",
+        choices=("text", "json"),
+        default="text",
+        help="model output format; JSON requires output and cost_usd fields",
+    )
     parser.add_argument("--seed", type=int, default=0, help="dataset shuffle seed")
     parser.add_argument("--output", type=Path, help="write the full JSON report here")
     parser.add_argument("--json", action="store_true", help="print the summary as JSON")
@@ -59,6 +65,7 @@ def main(argv: list[str] | None = None) -> int:
                 retries=args.retries,
                 retry_delay=args.retry_delay,
                 cache_path=args.cache,
+                command_output=args.command_output,
             )
         random.Random(args.seed).shuffle(cases)
         result = evaluate_observations(
@@ -100,4 +107,6 @@ def main(argv: list[str] | None = None) -> int:
         )
         if args.output:
             print(f"Report:   {args.output}")
+        if result.total_cost_usd is not None:
+            print(f"Cost:     ${result.total_cost_usd:.6f}")
     return 0

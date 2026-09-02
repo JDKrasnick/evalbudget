@@ -150,6 +150,7 @@ summaries in the report.
 | `--timeout` | `30` | Seconds allowed for each model invocation. |
 | `--retries`, `--retry-delay` | `0`, `0` | Retries transient command failures with an optional delay. |
 | `--cache` | — | Checkpoints model outputs and resumes matching cases without rerunning them. |
+| `--command-output` | `text` | Accepts JSON envelopes with `output` and `cost_usd` for cost tracking. |
 | `--seed` | `0` | Reproducible dataset shuffle seed. |
 | `--output` | — | Writes the full JSON report, including every observation. |
 | `--json` | off | Prints the summary as machine-readable JSON. |
